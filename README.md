@@ -4,17 +4,17 @@
 
 ## Features
 
-- 24-tile mini board
+- 32-tile world board (`Board32.ts`)
 - Human + Easy / Normal / Hard AI
 - Dice → Move → Resolve Tile → Action → Next Turn
 - Properties: buy / rent / sell
-- Start, Tax, Jail, Chance, Free Parking
+- Tile types: Start, Property, Tax, Jail, Go To Jail, Chance, Free Parking
 - 5 Chance cards
+- Insufficient-funds handling: forced property sale or bankruptcy when the human player can't cover a debt (rent/tax)
 - Bankruptcy and last-player-standing victory
-- JSON save (`save.json`)
-- Core tests with Bun Test
+- JSON save (`save.json`), written after each human turn
 - OOP classes/interfaces + functional pure functions / higher-order callbacks
-- Logic separated from TUI
+- Logic separated from TUI (game core does not import `blessed`)
 
 ## Install
 
@@ -40,7 +40,10 @@ bun run check
 - `ENTER` / `R` — roll
 - `B` — buy current property
 - `S` — sell cheapest property
+- `N` — quit the app immediately
 - `Q` / `Ctrl+C` — quit
+
+> Note: the on-screen action bar currently labels `N` as "NEW", but it does not start a new game — it exits the app, same as `Q`.
 
 ## Architecture
 
@@ -53,7 +56,8 @@ ui/App.ts ────────────────┐
   ├── BoardView            │
   ├── PlayerView           │
   ├── GameLog              │
-  └── ActionMenu           │
+  ├── ActionMenu           │
+  └── DiceView             │
           │                │
           ▼                ▼
        Game.ts ──────── AI classes
@@ -61,7 +65,7 @@ ui/App.ts ────────────────┐
           │             ├─ NormalAI
           │             └─ HardAI
           │
-          ├─ Board
+          ├─ Board (Board32 tile data)
           ├─ Player
           ├─ Property
           └─ Chance
@@ -78,6 +82,9 @@ classDiagram
       +buy()
       +sellProperty()
       +resolveTile()
+      +decidePurchase()
+      +sellForDebt()
+      +declareBankruptcy()
       +nextTurn()
       +checkWinner()
     }
@@ -126,4 +133,4 @@ classDiagram
 
 ## Persistence
 
-The TUI writes a lightweight JSON snapshot to `save.json` after the human turn. The save layer is isolated in `src/save.ts` so a full load/resume flow can be added without changing the game rules.
+The TUI writes a lightweight JSON snapshot to `save.json` directly from `App.ts` after each human roll (via an inline `serialize()` + `Bun.write` call). A separate `save.ts` module also exists, exporting `writeSave` / `readSave` helpers for the same `SaveData` shape — but `App.ts` does not currently call into it. Wiring `App.ts` to use `save.ts` (and adding a load/resume flow on startup) is a natural next step without needing to touch the game rules.
