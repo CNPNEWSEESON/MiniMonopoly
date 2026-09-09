@@ -1,152 +1,111 @@
 # 🎲 Mini Monopoly — TypeScript TUI
 
-1 Player vs 3 Computers, turn-based, running on Bun.
+เกม Monopoly แบบย่อเล่นใน Terminal ผู้เล่น 1 คนสู้กับ Bot 3 ตัว
 
-## Features
+---
 
-- 32-tile world board (`Board32.ts`)
-- Human + Easy / Normal / Hard AI
-- Dice → Move → Resolve Tile → Action → Next Turn
-- Properties: buy / rent / sell / **take over** from another player at 200% price
-- Tile types: Start, Property, Tax, Jail, Go To Jail, Chance, Free Parking
-- 5 Chance cards with popup notification (1.5–3s) when drawn
-- Jailed players skip their turn automatically without rolling
-- Insufficient-funds handling: forced property sale or bankruptcy when a player can't cover a debt
-- Bankruptcy and last-player-standing victory
-- JSON auto-save (`save.json`) written after each turn; resume on startup
-- OOP classes/interfaces + functional pure functions / higher-order callbacks
-- Logic separated from TUI (game core does not import `blessed`)
-
-## Install
+## ติดตั้งและรัน
 
 ```bash
 bun install
 bun run start
 ```
 
-## Test
-
+รัน test:
 ```bash
 bun test
 ```
 
-## Type check
+---
 
-```bash
-bun run check
-```
+## วิธีเล่น
 
-## Controls
+เมื่อเปิดเกม จะมีหน้าเลือกระดับความยาก:
 
-| Key | Action |
-|-----|--------|
-| `ENTER` / `R` | Roll dice |
-| `B` | Buy current property (if unowned) |
-| `S` | Sell cheapest property you own |
-| `T` | Take over property you're standing on (must be owned by another player; costs 200% of original price) |
-| `N` / `Q` / `Ctrl+C` | Quit |
+- กด `1` — Easy
+- กด `2` — Normal  
+- กด `3` — Hard
+- กด `C` — โหลดเกมที่เล่นค้างไว้ (ถ้ามี)
 
-## AI Behaviour
+---
 
-| Difficulty | Buy | Take Over | Jail |
-|------------|-----|-----------|------|
-| **Easy** | Always if affordable | Always if affordable | Never pays bail |
-| **Normal** | Good rent + cash buffer + ≤4 properties | Same conditions as buy | Pays bail if cash buffer allows |
-| **Hard** | ROI check + cash reserve | Only when behind & ROI positive | Pays bail when behind or portfolio full |
+## ปุ่มควบคุม
 
-## Architecture
+| ปุ่ม | การทำงาน |
+|------|----------|
+| `ENTER` | สุ่มลูกเต๋าและเดิน |
+| `B` | ซื้อที่ดินที่กำลังยืนอยู่ (ต้องยังไม่มีเจ้าของ) |
+| `S` | ขายที่ดินที่ถูกที่สุดในมือ (ได้ 50% ของราคาซื้อ) |
+| `T` | ยึดที่ดินที่กำลังยืนอยู่จากเจ้าของคนอื่น (จ่าย 200% ของราคาเดิม) |
+| `Q` / `Ctrl+C` | ออกจากเกม |
 
-```text
-main.ts
-  │
-  ▼
-ui/App.ts ────────────────┐
-  │                       │
-  ├── BoardView            │
-  ├── PlayerView           │
-  ├── GameLog              │
-  ├── ActionMenu           │
-  └── DiceView             │
-          │                │
-          ▼                ▼
-       Game.ts ──────── AI classes
-          │             ├─ EasyAI
-          │             ├─ NormalAI
-          │             └─ HardAI
-          │
-          ├─ Board (Board32 tile data)
-          ├─ Player
-          ├─ Property
-          └─ Chance
-```
+---
 
-## Class Diagram
+## กระดาน
 
-```mermaid
-classDiagram
-    class Game {
-      +Board board
-      +Player[] players
-      +ChanceHandler onChance
-      +roll()
-      +buy()
-      +sellProperty()
-      +takeOver()
-      +initiateTakeover()
-      +decideTakeover()
-      +resolveTile()
-      +decidePurchase()
-      +sellForDebt()
-      +declareBankruptcy()
-      +nextTurn()
-      +checkWinner()
-    }
-    class Player {
-      +string id
-      +string name
-      +number money
-      +number position
-      +PlayerStatus status
-      +Property[] properties
-      +SellPriorityFn sellPriority
-      +JailDecisionFn decideJail
-    }
-    class Board {
-      +Tile[] tiles
-      +getTile(position)
-      +findPropertyById(id)
-    }
-    class Property {
-      +string name
-      +number price
-      +number rent
-      +PlayerRef owner
-    }
-    class ChanceCard {
-      +string title
-      +string description
-      +apply()
-    }
-    class EasyAI
-    class NormalAI
-    class HardAI
+กระดานมี **32 ช่อง** เรียงเป็นวงรอบ แบ่งเป็น:
 
-    Game --> Board
-    Game --> Player
-    Board --> Property
-    Game --> ChanceCard
-    EasyAI --> Player
-    NormalAI --> Player
-    HardAI --> Player
-```
+| ช่องประเภท | จำนวน | ผลที่เกิด |
+|------------|-------|-----------|
+| Property | 22 | ซื้อได้ถ้าว่าง / จ่ายค่าเช่าถ้ามีเจ้าของ |
+| Chance | 4 | จั่วการ์ดสุ่ม |
+| Tax | 2 | จ่ายภาษีทันที ($100 หรือ $150) |
+| Start (GO) | 1 | เก็บ $200 เมื่อผ่านหรือเหยียบ |
+| Jail | 1 | แค่เยี่ยมชม (ไม่มีผล) |
+| Go To Jail | 1 | ติดคุกทันที ข้ามเทิร์นหน้า |
+| Free Parking | 1 | ไม่มีผลอะไร |
 
-## FP usage
+ที่ดินยิ่งอยู่ห่างจาก GO ราคายิ่งแพงและค่าเช่ายิ่งสูง ตั้งแต่ Bangkok ($100/เช่า $20) ถึง Madrid ($400/เช่า $90)
 
-- `movePosition()` is a pure function.
-- `rollDice(random)` is deterministic when a random source is injected.
-- `map`, `filter`, `sort`, and higher-order callbacks are used throughout the core.
-- TUI only observes and triggers game actions; game rules do not depend on Blessed.
+---
 
-## Persistence
+## ระบบการเงิน
 
-`App.ts` auto-saves a JSON snapshot to `save.json` after every turn via `writeSave` from `save.ts`. On startup, if a save file exists, the mode-select screen offers a **Resume** option (`C`) that restores all player state, property ownership, and AI brains — always handing control back to the human player.
+- เริ่มต้นด้วยเงิน **$1,500**
+- ผ่าน GO รับ **$200**
+- เหยียบ GO รับ **$200**
+- ขายที่ดินได้ **50%** ของราคาซื้อ
+- ยึดที่ดินจากคนอื่นต้องจ่าย **200%** ของราคาเดิม เจ้าของเก่าได้รับเงินนั้นทั้งหมด
+
+---
+
+## ระบบคุก
+
+- เหยียบช่อง **Go To Jail** → ติดคุก ข้ามเทิร์นถัดไปโดยอัตโนมัติ ไม่ต้องกด roll
+- จ่าย **$50** ก่อนเดินเพื่อออกจากคุกได้เลย (ขึ้นอยู่กับการตัดสินใจของผู้เล่น/Bot)
+
+---
+
+## Chance Cards
+
+มี 5 ใบ สุ่มดึงทุกครั้งที่เหยียบช่อง Chance เมื่อดึงการ์ด จะมี **popup แสดง 1.5–3 วินาที** บอกว่าใครได้การ์ดอะไร:
+
+- รับเงิน $100 จากธนาคาร
+- จ่ายเงิน $100
+- เดินหน้า 3 ช่อง
+- ถอยหลัง 2 ช่อง
+- จ่ายภาษี $75
+
+---
+
+## เมื่อเงินไม่พอ
+
+ถ้าต้องจ่ายเงินแต่มีไม่พอ:
+
+**ผู้เล่น (Human)** — จะมีเมนูให้เลือกขายที่ดินแต่ละแปลงเพื่อหาเงิน หรือกด "Declare Bankruptcy" เพื่อยอมแพ้ทันที
+
+**Bot** — จะขายที่ดินอัตโนมัติตามลำดับที่แต่ละ tier กำหนด จนกว่าจะพ้นหนี้ หรือล้มละลาย
+
+เมื่อล้มละลาย ที่ดินทั้งหมดถูกคืนสู่ตลาด (ไม่มีเจ้าของ) และตัดออกจากเกม
+
+---
+
+## การชนะ
+
+ผู้เล่นคนสุดท้ายที่ยังไม่ล้มละลายคือผู้ชนะ
+
+---
+
+## การบันทึกเกม
+
+เกมจะ **บันทึกอัตโนมัติ** ทุกครั้งหลังจบเทิร์น ลงไฟล์ `save.json` ในโฟลเดอร์เดียวกัน ครั้งหน้าที่เปิดเกมจะมีตัวเลือก **Resume** ให้กด `C` เพื่อเล่นต่อจากจุดที่หยุดไว้ ไม่ว่าจะหยุดตอนเทิร์นใคร ระบบจะส่งคืนเทิร์นให้ผู้เล่นเสมอ
