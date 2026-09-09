@@ -3,8 +3,8 @@ import type { Player } from "../game/Player";
 
 export const PLAYER_COLORS: Record<string, [string, string]> = {
   human:  ["{yellow-fg}", "{/yellow-fg}"],
-  easy:   ["{blue-fg}",   "{/blue-fg}"],
-  normal: ["{green-fg}",  "{/green-fg}"],
+  easy:   ["{green-fg}",   "{/green-fg}"],
+  normal: ["{blue-fg}",  "{/blue-fg}"],
   hard:   ["{red-fg}",    "{/red-fg}"],
 };
 

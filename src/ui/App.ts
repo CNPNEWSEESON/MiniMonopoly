@@ -15,8 +15,6 @@ import { PropertyInfo } from "./PropertyInfo";
 import { Property } from "../game/Property";
 import { writeSave, readSave, type SaveData } from "../save";
 
-type Mode = "easy" | "normal" | "hard";
-
 const SAVE_FILE = "save.json";
 const MOVE_STEP_DELAY_MS = 200;
 const PAUSE_AFTER_DICE_MS = 300;
@@ -44,7 +42,7 @@ export class App {
   private busy = false;
 
   constructor() {
-    App.resizeConsole(158, 46);
+    App.resizeConsole(195, 46);
     this.screen = blessed.screen({ smartCSR: true, title: "Mini Monopoly TUI" });
     this.boardView = new BoardView();
     this.playerView = new PlayerView();
@@ -58,7 +56,7 @@ export class App {
 
   private async init(): Promise<void> {
     const save = await readSave(SAVE_FILE).catch(() => null);
-    this.showModeSelect(save);
+    this.showStartMenu(save);
   }
 
   private static resizeConsole(cols: number, rows: number): void {
@@ -75,41 +73,41 @@ export class App {
 
   public run(): void { this.screen.render(); }
 
-  private showModeSelect(save: SaveData | null): void {
+  private showStartMenu(save: SaveData | null): void {
     const hasSave = save !== null;
 
     const contentLines = [
-      "{bold}{white-fg}Mini Monopoly{/white-fg}{/bold}",
       "",
-      "{green-fg}{bold}1{/bold}  Easy{/green-fg}     {white-fg}Bots buy when they can{/white-fg}",
-      "{yellow-fg}{bold}2{/bold}  Normal{/yellow-fg}   {white-fg}Bots check cost and rent{/white-fg}",
-      "{red-fg}{bold}3{/bold}  Hard{/red-fg}     {white-fg}Bots play carefully{/white-fg}",
-      "",
+      "{green-fg}{bold}1{/bold}  New Game{/green-fg}",
     ];
     if (hasSave) {
-      const savedAt = new Date(save!.savedAt).toLocaleString("th-TH")
-      contentLines.push(`{cyan-fg}{bold}C{/bold}  Resume{/cyan-fg}   {white-fg}Resume game (${savedAt}){/white-fg}`);
-      contentLines.push("");
+      const savedAt = new Date(save!.savedAt).toLocaleString("th-TH");
+      contentLines.push(`{cyan-fg}{bold}2{/bold}  Resume Game{/cyan-fg}   {white-fg}(${savedAt}){/white-fg}`);
+    } else {
+      contentLines.push("{gray-fg}2  Resume Game   (no saved game){/gray-fg}");
     }
-    contentLines.push("{white-fg}You vs 3 bots at the chosen difficulty{/white-fg}");
+    contentLines.push("");
+    contentLines.push("{red-fg}{bold}Q{/bold} Quit{/red-fg}");
 
-    const box = blessed.box({top: "center",left: "center",width: 54,height: hasSave ? 15 : 13,border: { type: "line" },label: " Select Difficulty ",tags: true,align: "left" as const,valign: "middle" as const,padding: { left: 3, right: 2, top: 0, bottom: 0 },style: { border: { fg: "cyan" }, label: { fg: "cyan", bold: true } },content: contentLines.join("\n"),});
+    const box = blessed.box({top: "center", left: "center", width: 54, height: 15, border: { type: "line" }, label: " Mini Monopoly ", tags: true, align: "left" as const, valign: "middle" as const, padding: { left: 3, right: 2, top: 0, bottom: 0 }, style: { border: { fg: "cyan" }, label: { fg: "cyan", bold: true } }, content: contentLines.join("\n")});
     this.screen.append(box);
     this.screen.render();
 
-    const choose = (mode: Mode) => {
+    const startNewGame = () => {
       this.screen.remove(box);
-      this.startGame(mode);
+      this.startGame();
     };
+    this.screen.onceKey("1", startNewGame);
+    this.screen.onceKey("n", startNewGame);
 
-    this.screen.onceKey("1", () => choose("easy"));
-    this.screen.onceKey("2", () => choose("normal"));
-    this.screen.onceKey("3", () => choose("hard"));
     if (hasSave) {
-      this.screen.onceKey("c", () => {
+      const resumeGame = () => {
         this.screen.remove(box);
         this.loadGame(save!);
-      });
+      };
+      this.screen.onceKey("2", resumeGame);
+      this.screen.onceKey("r", resumeGame);
+      this.screen.onceKey("c", resumeGame);
     }
     this.screen.key(["q", "C-c", "escape"], () => process.exit(0));
   }
@@ -158,20 +156,21 @@ export class App {
     this.screen.render();
   }
 
-  private startGame(mode: Mode): void {
-    const kind = mode === "easy" ? "AI Easy" as const : mode === "normal" ? "AI Normal" as const : "AI Hard" as const;
-    const AIClass = mode === "easy" ? EasyAI : mode === "normal" ? NormalAI : HardAI;
-
+  private startGame(): void {
     const players = [
       new Player("human", "Player", "Human"),
-      new Player("bot1", "Bot 1", kind),
-      new Player("bot2", "Bot 2", kind),
-      new Player("bot3", "Bot 3", kind),
+      new Player("easy", "Bot ( Easy )", "AI Easy"),
+      new Player("normal", "Bot ( Normal )", "AI Normal"),
+      new Player("hard", "Bot ( Hard )", "AI Hard"),
     ];
 
     this.game = new Game(players, message => this.gameLog.add(message));
     this.game.onChance = (player, card) => this.showChancePopup(player.name, card);
-    this.ais = [new AIClass(players[1]!), new AIClass(players[2]!), new AIClass(players[3]!)];
+    this.ais = [
+      new EasyAI(players[1]!),
+      new NormalAI(players[2]!),
+      new HardAI(players[3]!),
+    ];
 
     this.layout();
     this.bindKeys();
