@@ -7,12 +7,13 @@
 - 32-tile world board (`Board32.ts`)
 - Human + Easy / Normal / Hard AI
 - Dice → Move → Resolve Tile → Action → Next Turn
-- Properties: buy / rent / sell
+- Properties: buy / rent / sell / **take over** from another player at 200% price
 - Tile types: Start, Property, Tax, Jail, Go To Jail, Chance, Free Parking
-- 5 Chance cards
-- Insufficient-funds handling: forced property sale or bankruptcy when the human player can't cover a debt (rent/tax)
+- 5 Chance cards with popup notification (1.5–3s) when drawn
+- Jailed players skip their turn automatically without rolling
+- Insufficient-funds handling: forced property sale or bankruptcy when a player can't cover a debt
 - Bankruptcy and last-player-standing victory
-- JSON save (`save.json`), written after each human turn
+- JSON auto-save (`save.json`) written after each turn; resume on startup
 - OOP classes/interfaces + functional pure functions / higher-order callbacks
 - Logic separated from TUI (game core does not import `blessed`)
 
@@ -37,13 +38,21 @@ bun run check
 
 ## Controls
 
-- `ENTER` / `R` — roll
-- `B` — buy current property
-- `S` — sell cheapest property
-- `N` — quit the app immediately
-- `Q` / `Ctrl+C` — quit
+| Key | Action |
+|-----|--------|
+| `ENTER` / `R` | Roll dice |
+| `B` | Buy current property (if unowned) |
+| `S` | Sell cheapest property you own |
+| `T` | Take over property you're standing on (must be owned by another player; costs 200% of original price) |
+| `N` / `Q` / `Ctrl+C` | Quit |
 
-> Note: the on-screen action bar currently labels `N` as "NEW", but it does not start a new game — it exits the app, same as `Q`.
+## AI Behaviour
+
+| Difficulty | Buy | Take Over | Jail |
+|------------|-----|-----------|------|
+| **Easy** | Always if affordable | Always if affordable | Never pays bail |
+| **Normal** | Good rent + cash buffer + ≤4 properties | Same conditions as buy | Pays bail if cash buffer allows |
+| **Hard** | ROI check + cash reserve | Only when behind & ROI positive | Pays bail when behind or portfolio full |
 
 ## Architecture
 
@@ -78,9 +87,13 @@ classDiagram
     class Game {
       +Board board
       +Player[] players
+      +ChanceHandler onChance
       +roll()
       +buy()
       +sellProperty()
+      +takeOver()
+      +initiateTakeover()
+      +decideTakeover()
       +resolveTile()
       +decidePurchase()
       +sellForDebt()
@@ -95,10 +108,13 @@ classDiagram
       +number position
       +PlayerStatus status
       +Property[] properties
+      +SellPriorityFn sellPriority
+      +JailDecisionFn decideJail
     }
     class Board {
       +Tile[] tiles
       +getTile(position)
+      +findPropertyById(id)
     }
     class Property {
       +string name
@@ -133,4 +149,4 @@ classDiagram
 
 ## Persistence
 
-The TUI writes a lightweight JSON snapshot to `save.json` directly from `App.ts` after each human roll (via an inline `serialize()` + `Bun.write` call). A separate `save.ts` module also exists, exporting `writeSave` / `readSave` helpers for the same `SaveData` shape — but `App.ts` does not currently call into it. Wiring `App.ts` to use `save.ts` (and adding a load/resume flow on startup) is a natural next step without needing to touch the game rules.
+`App.ts` auto-saves a JSON snapshot to `save.json` after every turn via `writeSave` from `save.ts`. On startup, if a save file exists, the mode-select screen offers a **Resume** option (`C`) that restores all player state, property ownership, and AI brains — always handing control back to the human player.
