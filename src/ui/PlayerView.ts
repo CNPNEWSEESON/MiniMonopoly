@@ -35,7 +35,7 @@ export class PlayerView {
 
     const rows = players.map(p => {
       const isCurrent = p.id === currentId;
-      const [colorOpen, colorClose] = PLAYER_COLORS[p.id] ?? ["{white-fg}", "{/white-fg}"];
+      const [colorOpen, colorClose] = PLAYER_COLORS[p.id] ?? ["{red-fg}", "{/red-fg}"];
       const marker = isCurrent ? `${colorOpen}{bold}>{/bold}${colorClose}` : " ";
 
       let badge: string;
@@ -46,7 +46,7 @@ export class PlayerView {
       } else if (isCurrent) {
         badge = `${colorOpen}{bold}[ACTIVE]{/bold}${colorClose}`;
       } else {
-        badge = "{white-fg}[active]{/white-fg}";
+        badge = "{white-fg}[WAITING]{/white-fg}";
       }
 
       const namePlain = p.name.padEnd(nameWidth);

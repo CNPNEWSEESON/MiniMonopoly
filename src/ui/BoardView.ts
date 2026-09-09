@@ -163,12 +163,12 @@ export class BoardView {
     };
 
     let propertyBarIndex = 0;
-    const renderPropertyBar = (width: number): string => {
+    const renderTopBottomSubtext = (tile: typeof tiles[0], width: number): string => {
+      if (tile.type !== "property") return centerPlain(TILE_SUBTEXT[tile.type] ?? "", width);
+      const dashLength = Math.max(3, width - 4);
       const [colorOpen, colorClose] = PROPERTY_BAR_COLORS[propertyBarIndex++ % PROPERTY_BAR_COLORS.length]!;
-      return `${colorOpen}${"━".repeat(width)}${colorClose}`;
+      return centerTagged(`${colorOpen}${"═".repeat(dashLength)}${colorClose}`, width);
     };
-
-    const renderTopBottomSubtext = (tile: typeof tiles[0]): string => tile.type === "property" ? renderPropertyBar(TILE_WIDTH) : centerPlain(TILE_SUBTEXT[tile.type] ?? "", TILE_WIDTH);
     const renderCornerSubtext = (tile: typeof tiles[0]): string => centerPlain(tile.type === "start" ? "+200$" : tile.type === "parking" ? "FREE" : "", CORNER_WIDTH);
 
     const cornerHorizontalLine = "─".repeat(CORNER_WIDTH);
@@ -192,7 +192,7 @@ export class BoardView {
 
     outputLines.push(topBorder);
     outputLines.push("│" + centerPlain(topLeftCorner.name, CORNER_WIDTH) + "│" + topEdgeTiles.map(t => renderTileName(t, TILE_WIDTH)).join("│") + "│" + centerPlain(topRightCorner.name, CORNER_WIDTH) + "│");
-    outputLines.push("│" + renderCornerSubtext(topLeftCorner) + "│" + topEdgeTiles.map(t => renderTopBottomSubtext(t)).join("│") + "│" + renderCornerSubtext(topRightCorner) + "│");
+    outputLines.push("│" + renderCornerSubtext(topLeftCorner) + "│" + topEdgeTiles.map(t => renderTopBottomSubtext(t, TILE_WIDTH)).join("│") + "│" + renderCornerSubtext(topRightCorner) + "│");
     outputLines.push("│" + renderOccupantCell(0, CORNER_WIDTH) + "│" + topEdgeTiles.map((_t, i) => renderOccupantCell(i + 1, TILE_WIDTH)).join("│") + "│" + renderOccupantCell(8, CORNER_WIDTH) + "│");
     outputLines.push(middleBorder);
 
@@ -202,9 +202,9 @@ export class BoardView {
       const rightTile = rightEdgeTiles[row]!;
 
       const leftNameCell = renderTileName(leftTile, CORNER_WIDTH);
-      const leftSubtextCell = leftTile.type === "property" ? renderPropertyBar(TILE_WIDTH) + " ".repeat(CORNER_WIDTH - TILE_WIDTH) : centerPlain(TILE_SUBTEXT[leftTile.type] ?? "", CORNER_WIDTH) 
+      const leftSubtextCell = renderTopBottomSubtext(leftTile, CORNER_WIDTH);
       const rightNameCell = renderTileName(rightTile, CORNER_WIDTH);
-      const rightSubtextCell = rightTile.type === "property" ? renderPropertyBar(TILE_WIDTH) + " ".repeat(CORNER_WIDTH - TILE_WIDTH) : centerPlain(TILE_SUBTEXT[rightTile.type] ?? "", CORNER_WIDTH);
+      const rightSubtextCell = renderTopBottomSubtext(rightTile, CORNER_WIDTH);
 
       const centerCell = padTagged(centerBannerLines[row] ?? "", CENTER_WIDTH);
       outputLines.push(`│${leftNameCell}│${centerCell}│${rightNameCell}│`);
@@ -217,7 +217,7 @@ export class BoardView {
     outputLines.push(middleBorder);
 
     outputLines.push("│" + centerPlain(bottomLeftCorner.name, CORNER_WIDTH) + "│" + bottomEdgeTiles.map(t => renderTileName(t, TILE_WIDTH)).join("│") + "│" + centerPlain(bottomRightCorner.name, CORNER_WIDTH) + "│");
-    outputLines.push("│" + renderCornerSubtext(bottomLeftCorner) + "│" + bottomEdgeTiles.map(t => renderTopBottomSubtext(t)).join("│") + "│" + renderCornerSubtext(bottomRightCorner) + "│");
+    outputLines.push("│" + renderCornerSubtext(bottomLeftCorner) + "│" + bottomEdgeTiles.map(t => renderTopBottomSubtext(t, TILE_WIDTH)).join("│") + "│" + renderCornerSubtext(bottomRightCorner) + "│");
     outputLines.push("│" + renderOccupantCell(24, CORNER_WIDTH) + "│" + bottomEdgeTiles.map((_t, i) => renderOccupantCell(23 - i, TILE_WIDTH)).join("│") + "│" + renderOccupantCell(16, CORNER_WIDTH) + "│");
     outputLines.push(bottomBorder);
 

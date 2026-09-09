@@ -11,6 +11,7 @@ import { PlayerView } from "./PlayerView";
 import { GameLog } from "./GameLog";
 import { ActionMenu } from "./ActionMenu";
 import { DiceView } from "./DiceView";
+import { PropertyInfo } from "./PropertyInfo";
 import { Property } from "../game/Property";
 import { writeSave, readSave, type SaveData } from "../save";
 
@@ -37,6 +38,7 @@ export class App {
   private readonly gameLog: GameLog;
   private readonly actionMenu: ActionMenu;
   private readonly diceView: DiceView;
+  private readonly propertyInfo: PropertyInfo;
   private game!: Game;
   private ais!: (EasyAI | NormalAI | HardAI)[];
   private busy = false;
@@ -49,6 +51,7 @@ export class App {
     this.gameLog = new GameLog();
     this.actionMenu = new ActionMenu();
     this.diceView = new DiceView();
+    this.propertyInfo = new PropertyInfo();
 
     void this.init();
   }
@@ -90,21 +93,7 @@ export class App {
     }
     contentLines.push("{white-fg}You vs 3 bots at the chosen difficulty{/white-fg}");
 
-    const box = blessed.box({
-      top: "center",
-      left: "center",
-      width: 54,
-      height: hasSave ? 15 : 13,
-      border: { type: "line" },
-      label: " Select Difficulty ",
-      tags: true,
-      align: "left" as const,
-      valign: "middle" as const,
-      padding: { left: 3, right: 2, top: 0, bottom: 0 },
-      style: { border: { fg: "cyan" }, label: { fg: "cyan", bold: true } },
-      content: contentLines.join("\n"),
-    });
-
+    const box = blessed.box({top: "center",left: "center",width: 54,height: hasSave ? 15 : 13,border: { type: "line" },label: " Select Difficulty ",tags: true,align: "left" as const,valign: "middle" as const,padding: { left: 3, right: 2, top: 0, bottom: 0 },style: { border: { fg: "cyan" }, label: { fg: "cyan", bold: true } },content: contentLines.join("\n"),});
     this.screen.append(box);
     this.screen.render();
 
@@ -199,17 +188,22 @@ export class App {
     this.playerView.box.top    = 0;
     this.playerView.box.left   = "72%";
     this.playerView.box.width  = "28%";
-    this.playerView.box.height = "30%";
+    this.playerView.box.height = "18%";
 
-    this.gameLog.box.top    = "30%";
+    this.propertyInfo.box.top    = "18%";
+    this.propertyInfo.box.left   = "72%";
+    this.propertyInfo.box.width  = "28%";
+    this.propertyInfo.box.height = "20%";
+
+    this.gameLog.box.top    = "38%";
     this.gameLog.box.left   = "72%";
     this.gameLog.box.width  = "28%";
-    this.gameLog.box.height = "30%";
+    this.gameLog.box.height = "26%";
 
-    this.diceView.box.top    = "60%";
+    this.diceView.box.top    = "64%";
     this.diceView.box.left   = "72%";
     this.diceView.box.width  = "28%";
-    this.diceView.box.height = "40%";
+    this.diceView.box.height = "36%";
 
     this.actionMenu.box.top    = "92%";
     this.actionMenu.box.left   = 0;
@@ -218,6 +212,7 @@ export class App {
 
     this.screen.append(this.boardView.box);
     this.screen.append(this.playerView.box);
+    this.screen.append(this.propertyInfo.box);
     this.screen.append(this.gameLog.box);
     this.screen.append(this.diceView.box);
     this.screen.append(this.actionMenu.box);
@@ -330,7 +325,7 @@ export class App {
         width: "50%",
         height: "50%",
         border: { type: "line" },
-        label: " 💸 Not Enough Cash ",
+        label: " Not Enough Cash ",
         tags: true,
         keys: true,
         mouse: true,
@@ -344,7 +339,7 @@ export class App {
       const refresh = () => {
         const p = this.game.currentPlayer;
         const owed = Math.max(0, -p.money);
-        list.setLabel(` 💸 You owe $${owed} — sell a property `);
+        list.setLabel(` You owe $${owed} — sell a property `);
         const items = p.properties.map(prop =>
           `${prop.name}  —  sell for $${Math.floor(prop.price * 0.5)}`
         );
@@ -465,7 +460,7 @@ export class App {
       width: '38%',
       height: '28%',
       border: { type: 'line' },
-      label: ' Chance! ',
+      label: ' Chance ',
       tags: true,
       align: 'center' as const,
       valign: 'middle' as const,
@@ -475,7 +470,7 @@ export class App {
         '',
         `{bold}{yellow-fg}${card.title}{/yellow-fg}{/bold}`,
         `${card.description}`,
-      ].join(''),
+      ].join('\n'),
     });
     this.screen.append(box);
     this.screen.render();
@@ -497,6 +492,7 @@ export class App {
   private render(): void {
     this.boardView.render(this.game.board, this.game.players);
     this.playerView.render(this.game.players, this.game.currentPlayer.id);
+    this.propertyInfo.render(this.game.board, this.game.players);
     this.screen.render();
   }
 
@@ -511,4 +507,3 @@ export class App {
     };
   }
 }
-

@@ -1,7 +1,7 @@
 import blessed from "blessed";
 
 const FACE_WIDTH = 13;
-const INSET = 2; // gap kept between the border and any left/right-positioned dot
+const INSET = 2; 
 
 const DOT   = "{bold}{white-fg}●{/white-fg}{/bold}";
 const BLANK      = " ".repeat(FACE_WIDTH);
@@ -10,8 +10,6 @@ const RIGHT_ONLY = " ".repeat(FACE_WIDTH - INSET - 1) + DOT + " ".repeat(INSET);
 const BOTH_ENDS  = " ".repeat(INSET) + DOT + " ".repeat(FACE_WIDTH - 2 * INSET - 2) + DOT + " ".repeat(INSET);
 const CENTER     = " ".repeat((FACE_WIDTH - 1) / 2) + DOT + " ".repeat((FACE_WIDTH - 1) / 2);
 
-// Each face is described as [topRow, middleRow, bottomRow]; blank spacer rows
-// are inserted between them when drawing so the die reads as bigger/taller.
 const FACE_ROWS: Record<number, [string, string, string]> = {
   1: [BLANK,     CENTER,    BLANK],
   2: [LEFT_ONLY, BLANK,     RIGHT_ONLY],
@@ -34,18 +32,12 @@ export class DiceView {
   private die = 0;
   private settled = true;
 
-  /** @param settled Pass false while still spinning through random faces; true for the real result. */
   public render(die: number, settled = true): void {
     this.die = die;
     this.settled = settled;
     this.draw();
   }
 
-  /**
-   * Shows a flurry of random faces (slowing down toward the end) before
-   * settling on `finalValue`, giving the impression of a rolling die.
-   * `onFrame` is invoked after each face change so the caller can repaint the screen.
-   */
   public async animateRoll(finalValue: number, onFrame?: () => void): Promise<void> {
     const frameDelaysMs = [80, 90, 110, 140, 170, 210, 260];
     for (const delay of frameDelaysMs) {
@@ -73,19 +65,13 @@ export class DiceView {
     };
 
     const faceRows = [top, BLANK, middle, BLANK, bottom];
-
     const lines: string[] = [border.top];
     for (const row of faceRows) {
       lines.push(`{${frameColor}-fg}║{/${frameColor}-fg}${row}{${frameColor}-fg}║{/${frameColor}-fg}`);
     }
     lines.push(border.bottom);
     lines.push("");
-    lines.push(
-      this.settled
-        ? `{bold}{green-fg}+ Rolled : ${this.die}{/green-fg}{/bold}`
-        : `{white-fg}Rolling…{/white-fg}`,
-    );
-
+    lines.push(this.settled ? `{bold}{green-fg}+ Rolled : ${this.die}{/green-fg}{/bold}` : `{white-fg}Rolling…{/white-fg}`,);
     this.box.setContent(lines.join("\n"));
   }
 }

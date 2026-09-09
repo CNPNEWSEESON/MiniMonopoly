@@ -16,7 +16,6 @@ export class ActionMenu {
       "{bold}{green-fg}B{/green-fg} = BUY{/bold}",
       "{bold}{red-fg}S{/red-fg} = SELL{/bold}",
       "{bold}{magenta-fg}T{/magenta-fg} = TAKEOVER{/bold}",
-      "{bold}{blue-fg}N{/blue-fg} = NEW{/bold}",
       "{bold}{cyan-fg}Q{/cyan-fg} = QUIT{/bold}",
     ].join("   │   "),
   });
