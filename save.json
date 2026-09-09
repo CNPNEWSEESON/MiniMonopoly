@@ -5,42 +5,45 @@
       "id": "human",
       "name": "Player",
       "kind": "Human",
-      "money": 1500,
-      "position": 12,
-      "status": "active",
+      "money": 1790,
+      "position": 8,
+      "status": "jailed",
       "properties": []
     },
     {
       "id": "bot1",
       "name": "Bot 1",
       "kind": "AI Easy",
-      "money": 1360,
-      "position": 5,
-      "status": "active",
+      "money": 1190,
+      "position": 8,
+      "status": "jailed",
       "properties": [
-        5
+        4
       ]
     },
     {
       "id": "bot2",
       "name": "Bot 2",
       "kind": "AI Easy",
-      "money": 1400,
-      "position": 2,
+      "money": 1040,
+      "position": 11,
       "status": "active",
       "properties": [
-        2
+        1,
+        5
       ]
     },
     {
       "id": "bot3",
       "name": "Bot 3",
       "kind": "AI Easy",
-      "money": 1600,
-      "position": 3,
+      "money": 1180,
+      "position": 16,
       "status": "active",
-      "properties": []
+      "properties": [
+        12
+      ]
     }
   ],
-  "savedAt": "2026-09-05T20:07:23.014Z"
+  "savedAt": "2026-09-09T05:22:00.203Z"
 }

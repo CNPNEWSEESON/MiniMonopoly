@@ -118,7 +118,7 @@ export class BoardView {
     padding: { left: 1, right: 1, top: 0, bottom: 0 },
   });
 
-  public render(board: Board, players: Player[]): void {
+  public render(board: Board, players: Player[], positionOverrides?: Record<string, number>): void {
     const tiles = board.tiles.length >= 32 ? board.tiles : (WORLD_TILES as unknown as typeof board.tiles);
     const topLeftCorner     = tiles[0]!;
     const topEdgeTiles      = tiles.slice(1, 8);
@@ -129,7 +129,8 @@ export class BoardView {
     const bottomLeftCorner  = tiles[24]!;
     const leftEdgeTiles     = [...tiles.slice(25, 32)].reverse();
 
-    const playersOnTile = (tileIndex: number): Player[] => players.filter(p => p.status !== "bankrupt" && p.position === tileIndex);
+    const positionOf = (p: Player): number => positionOverrides?.[p.id] ?? p.position;
+    const playersOnTile = (tileIndex: number): Player[] => players.filter(p => p.status !== "bankrupt" && positionOf(p) === tileIndex);
     const playerLabel = (player: Player): string => `P${players.indexOf(player) + 1}`;
     const playerColor = (player: Player): [string, string] => PLAYER_COLORS[player.id] ?? ["{white-fg}", "{/white-fg}"];
 

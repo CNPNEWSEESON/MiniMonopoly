@@ -16,7 +16,7 @@ const DEFAULT_CATEGORY = { icon: "-", color: "white" };
 
 export class GameLog {
   public readonly box = blessed.box({
-    label: " Logs ",
+    label: " Game Logs ",
     border: { type: "line" },
     style: {
       border: { fg: "white" },

@@ -4,6 +4,7 @@ import { Player } from "./Player";
 import type { Property } from "./Property";
 
 export type EventLog = (message: string) => void;
+export type ChanceHandler = (player: Player, card: ChanceCard) => void;
 export type GameStatus = "playing" | "finished";
 
 export interface RandomSource { (): number; }
@@ -13,6 +14,7 @@ export const rollDice = (random: RandomSource = Math.random): number => Math.flo
 export const movePosition = (position: number, steps: number, boardSize: number): number => ((position + steps) % boardSize + boardSize) % boardSize;
 
 export const JAIL_BAIL_AMOUNT = 50;
+export const TAKEOVER_MULTIPLIER = 2.0;
 
 export class Game {
   public readonly board = new Board();
@@ -24,7 +26,9 @@ export class Game {
   public lastDice = 0;
   
   public pendingProperty: Property | null = null;
+  public pendingTakeover: Property | null = null; 
   public pendingDebt = false;
+  public onChance: ChanceHandler | null = null;
   private readonly log: EventLog;
 
   constructor(players: Player[], log: EventLog = () => {}) {
@@ -46,7 +50,6 @@ export class Game {
         player.removeMoney(JAIL_BAIL_AMOUNT);
         player.status = "active";
         this.log(`${player.name} paid $${JAIL_BAIL_AMOUNT} bail and left Jail immediately.`);
-        // falls through — player still gets to roll this same turn below
       } else {
         player.status = "active";
         this.log(`${player.name} leaves Jail.`);
@@ -69,7 +72,6 @@ export class Game {
     this.resolveTile(player, tile);
 
     if (this.pendingDebt) {
-      // Player must sell property (or declare bankruptcy) before the turn can continue.
       return dice;
     }
 
@@ -92,7 +94,6 @@ export class Game {
     return dice;
   }
 
-  /** Resolves a held-open Buy/Skip decision (see pendingProperty) and advances the turn. */
   public decidePurchase(buy: boolean): void {
     if (!this.pendingProperty) return;
     if (buy) this.buy(this.currentPlayer);
@@ -143,10 +144,50 @@ export class Game {
     if (!property) return false;
     player.removeProperty(property);
     property.owner = null;
-    const sellPrice = Math.floor(property.price * 0.5); // 50% of purchase price, per spec
+    const sellPrice = Math.floor(property.price * 0.5);
     player.addMoney(sellPrice);
     this.log(`${player.name} sold ${property.name} for $${sellPrice}.`);
     return true;
+  }
+
+  public takeOver(buyer: Player, propertyId: number, offer: number): boolean {
+    const property = this.board.findPropertyById(propertyId);
+    if (!property || !property.owner) return false;
+    if (property.owner.id === buyer.id) return false;
+    if (offer < property.price * TAKEOVER_MULTIPLIER) return false;
+    if (buyer.money < offer) return false;
+
+    const seller = this.players.find(p => p.id === property.owner!.id);
+    if (!seller) return false;
+
+    buyer.removeMoney(offer);
+    seller.addMoney(offer);
+    seller.removeProperty(property);
+    property.owner = { id: buyer.id, name: buyer.name };
+    buyer.addProperty(property);
+    this.log(`? ${buyer.name} took over ${property.name} from ${seller.name} for $${offer}!`);
+    return true;
+  }
+
+  public initiateTakeover(propertyId: number): boolean {
+    const property = this.board.findPropertyById(propertyId);
+    if (!property || !property.owner || property.owner.id === "human") return false;
+    const human = this.players.find(p => p.id === "human");
+    if (!human) return false;
+    const minOffer = Math.ceil(property.price * TAKEOVER_MULTIPLIER);
+    if (human.money < minOffer) return false;
+    this.pendingTakeover = property;
+    return true;
+  }
+
+  public decideTakeover(confirm: boolean): void {
+    if (!this.pendingTakeover) return;
+    if (confirm) {
+      const human = this.players.find(p => p.id === "human")!;
+      const offer = Math.ceil(this.pendingTakeover.price * TAKEOVER_MULTIPLIER);
+      this.takeOver(human, this.pendingTakeover.id, offer);
+    }
+    this.pendingTakeover = null;
   }
 
   public nextTurn(): void {
@@ -163,7 +204,7 @@ export class Game {
     if (active.length === 1) {
       this.status = "finished";
       this.winner = active[0]!;
-      this.log(`🏆 ${this.winner.name} wins the game!`);
+      this.log(`+ ${this.winner.name} wins the game!`);
     }
     return this.winner;
   }
@@ -183,22 +224,23 @@ export class Game {
 
   private payRent(player: Player, owner: Player, amount: number): void {
     const paid = Math.max(0, Math.min(amount, player.money));
-    player.removeMoney(amount); // full amount owed — may take player negative, which is what triggers debt handling below
-    owner.addMoney(paid); // owner only collects what was actually available at the time
+    player.removeMoney(amount);
+    owner.addMoney(paid);
     this.log(`${player.name} paid $${paid} rent to ${owner.name}.`);
     if (player.money < 0) this.handleInsufficientFunds(player);
   }
 
   private pay(player: Player, amount: number, reason: string): void {
     const paid = Math.max(0, Math.min(amount, player.money));
-    player.removeMoney(amount); // full amount owed — may take player negative
+    player.removeMoney(amount);
     this.log(`${player.name} paid $${paid} ${reason}.`);
     if (player.money < 0) this.handleInsufficientFunds(player);
   }
 
   private drawChance(player: Player): void {
     const card = this.chanceDeck[Math.floor(Math.random() * this.chanceDeck.length)]!;
-    this.log(`🎴 Chance: ${card.description}`);
+    this.log(`- Chance: ${card.description}`);
+    this.onChance?.(player, card);
     card.apply(player, {
       move: (p, steps) => { p.position = movePosition(p.position, steps, this.board.tiles.length); },
       payTax: (p, amount) => this.pay(p, amount, "tax"),
@@ -218,7 +260,6 @@ export class Game {
     this.checkBankruptcy(player);
   }
 
-  /** Sells one of the current (indebted) player's properties toward their shortfall, then resumes the turn once they're solvent or out of properties. Call while pendingDebt is true. */
   public sellForDebt(propertyId: number): boolean {
     if (!this.pendingDebt) return false;
     const player = this.currentPlayer;
@@ -233,7 +274,6 @@ export class Game {
     return true;
   }
 
-  /** Lets the indebted current player give up rather than sell further, ending their game immediately. */
   public declareBankruptcy(): void {
     if (!this.pendingDebt) return;
     this.pendingDebt = false;
@@ -249,7 +289,7 @@ export class Game {
     }
     player.money = 0;
     player.status = "bankrupt";
-    this.log(`💥 ${player.name} is BANKRUPT!`);
+    this.log(`* ${player.name} is BANKRUPT!`);
   }
 
   private checkBankruptcy(player: Player): void {

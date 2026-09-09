@@ -1,45 +1,61 @@
 import blessed from "blessed";
 
-// Dot patterns for each face of a die (5 rows × 11 cols).
-// Widened from the original 5-col layout: a terminal character cell is
-// roughly twice as tall as it is wide, so the dots need to be spread out
-// horizontally for the bordered box to actually look square instead of a
-// tall, narrow rectangle.
-const DOT   = "{bold}{white-fg}●{/white-fg}{/bold}";
-const BLANK = " ".repeat(11);
-const LEFT_ONLY  = DOT + " ".repeat(10);
-const RIGHT_ONLY = " ".repeat(10) + DOT;
-const BOTH_ENDS  = DOT + " ".repeat(9) + DOT;
-const CENTER     = " ".repeat(5) + DOT + " ".repeat(5);
+const FACE_WIDTH = 13;
+const INSET = 2; // gap kept between the border and any left/right-positioned dot
 
-const DICE_FACES: Record<number, string[]> = {
-  1: [BLANK,      BLANK, CENTER, BLANK, BLANK],
-  2: [LEFT_ONLY,  BLANK, BLANK,  BLANK, RIGHT_ONLY],
-  3: [LEFT_ONLY,  BLANK, CENTER, BLANK, RIGHT_ONLY],
-  4: [BOTH_ENDS,  BLANK, BLANK,  BLANK, BOTH_ENDS],
-  5: [BOTH_ENDS,  BLANK, CENTER, BLANK, BOTH_ENDS],
-  6: [BOTH_ENDS,  BLANK, BOTH_ENDS, BLANK, BOTH_ENDS],
+const DOT   = "{bold}{white-fg}●{/white-fg}{/bold}";
+const BLANK      = " ".repeat(FACE_WIDTH);
+const LEFT_ONLY  = " ".repeat(INSET) + DOT + " ".repeat(FACE_WIDTH - INSET - 1);
+const RIGHT_ONLY = " ".repeat(FACE_WIDTH - INSET - 1) + DOT + " ".repeat(INSET);
+const BOTH_ENDS  = " ".repeat(INSET) + DOT + " ".repeat(FACE_WIDTH - 2 * INSET - 2) + DOT + " ".repeat(INSET);
+const CENTER     = " ".repeat((FACE_WIDTH - 1) / 2) + DOT + " ".repeat((FACE_WIDTH - 1) / 2);
+
+// Each face is described as [topRow, middleRow, bottomRow]; blank spacer rows
+// are inserted between them when drawing so the die reads as bigger/taller.
+const FACE_ROWS: Record<number, [string, string, string]> = {
+  1: [BLANK,     CENTER,    BLANK],
+  2: [LEFT_ONLY, BLANK,     RIGHT_ONLY],
+  3: [LEFT_ONLY, CENTER,    RIGHT_ONLY],
+  4: [BOTH_ENDS, BLANK,     BOTH_ENDS],
+  5: [BOTH_ENDS, CENTER,    BOTH_ENDS],
+  6: [BOTH_ENDS, BOTH_ENDS, BOTH_ENDS],
 };
 
 export class DiceView {
   public readonly box = blessed.box({
-    label: " Dices ",
-    border: { type: "line" },
+    label: " Dices ", border: { type: "line" },
     style: {
       border: { fg: "cyan" },
       label: { fg: "white", bold: true },
     },
-    tags: true,
-    align: "center" as const,
-    valign: "middle" as const,
-    padding: { left: 1, right: 1, top: 0, bottom: 0 },
+    tags: true, align: "center" as const, valign: "middle" as const, padding: { left: 1, right: 1, top: 0, bottom: 0 },
   });
 
   private die = 0;
+  private settled = true;
 
-  public render(die: number): void {
+  /** @param settled Pass false while still spinning through random faces; true for the real result. */
+  public render(die: number, settled = true): void {
     this.die = die;
+    this.settled = settled;
     this.draw();
+  }
+
+  /**
+   * Shows a flurry of random faces (slowing down toward the end) before
+   * settling on `finalValue`, giving the impression of a rolling die.
+   * `onFrame` is invoked after each face change so the caller can repaint the screen.
+   */
+  public async animateRoll(finalValue: number, onFrame?: () => void): Promise<void> {
+    const frameDelaysMs = [80, 90, 110, 140, 170, 210, 260];
+    for (const delay of frameDelaysMs) {
+      const randomFace = Math.floor(Math.random() * 6) + 1;
+      this.render(randomFace, false);
+      onFrame?.();
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    this.render(finalValue, true);
+    onFrame?.();
   }
 
   private draw(): void {
@@ -48,16 +64,27 @@ export class DiceView {
       return;
     }
 
-    const face = DICE_FACES[this.die] ?? DICE_FACES[1]!;
-    const top    = "{cyan-fg}┌───────────┐{/cyan-fg}";
-    const bottom = "{cyan-fg}└───────────┘{/cyan-fg}";
+    const [top, middle, bottom] = FACE_ROWS[this.die] ?? FACE_ROWS[1]!;
+    const horizontalLine = "═".repeat(FACE_WIDTH);
+    const frameColor = this.settled ? "green" : "cyan";
+    const border = {
+      top: `{${frameColor}-fg}╔${horizontalLine}╗{/${frameColor}-fg}`,
+      bottom: `{${frameColor}-fg}╚${horizontalLine}╝{/${frameColor}-fg}`,
+    };
 
-    const lines: string[] = [top];
-    for (let r = 0; r < 5; r++) {
-      lines.push(`{cyan-fg}│{/cyan-fg}${face[r]!}{cyan-fg}│{/cyan-fg}`);
+    const faceRows = [top, BLANK, middle, BLANK, bottom];
+
+    const lines: string[] = [border.top];
+    for (const row of faceRows) {
+      lines.push(`{${frameColor}-fg}║{/${frameColor}-fg}${row}{${frameColor}-fg}║{/${frameColor}-fg}`);
     }
-    lines.push(bottom);
-    lines.push(`{bold}{yellow-fg}Rolled: ${this.die}{/yellow-fg}{/bold}`);
+    lines.push(border.bottom);
+    lines.push("");
+    lines.push(
+      this.settled
+        ? `{bold}{green-fg}+ Rolled : ${this.die}{/green-fg}{/bold}`
+        : `{white-fg}Rolling…{/white-fg}`,
+    );
 
     this.box.setContent(lines.join("\n"));
   }

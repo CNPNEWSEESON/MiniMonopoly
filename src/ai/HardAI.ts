@@ -1,4 +1,4 @@
-import { JAIL_BAIL_AMOUNT, type Game } from "../game/Game";
+import { JAIL_BAIL_AMOUNT, TAKEOVER_MULTIPLIER, type Game } from "../game/Game";
 import { Player } from "../game/Player";
 
 const MIN_CASH_RESERVE_AFTER_BUY = 200;
@@ -19,22 +19,29 @@ export class HardAI {
     };
   }
 
-  public takeTurn(game: Game): void {
+  public takeTurn(game: Game): number {
     const dice = game.roll(this.player);
-    if (dice === 0) return;
+    if (dice === 0) return dice;
     const tile = game.board.getTile(this.player.position);
-    if (tile.type !== "property" || !tile.property || tile.property.owner) return;
+    if (tile.type !== "property" || !tile.property) return dice;
+    if (tile.property.owner?.id === this.player.id) return dice;
 
     const p = tile.property;
-
-    const moneyAfter = this.player.money - p.price;
-    if (moneyAfter < MIN_CASH_RESERVE_AFTER_BUY) return;
-
     const behind = HardAI.isBehindRichestOpponent(game, this.player);
     const roi = p.rent * 4 - p.price * 0.25;
     const threshold = behind ? ROI_THRESHOLD_BEHIND : ROI_THRESHOLD_LEADING;
 
-    if (roi > threshold) game.buy(this.player);
+    if (!p.owner) {
+      const moneyAfter = this.player.money - p.price;
+      if (moneyAfter >= MIN_CASH_RESERVE_AFTER_BUY && roi > threshold) game.buy(this.player);
+    } else {
+      const offer = Math.ceil(p.price * TAKEOVER_MULTIPLIER);
+      const moneyAfterTakeover = this.player.money - offer;
+      if (moneyAfterTakeover >= MIN_CASH_RESERVE_AFTER_BUY && behind && roi > threshold) {
+        game.takeOver(this.player, p.id, offer);
+      }
+    }
+    return dice;
   }
 
   private static isBehindRichestOpponent(game: Game, player: Player): boolean {
