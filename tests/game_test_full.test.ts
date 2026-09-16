@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach } from "bun:test";
-import { movePosition, rollDice, Game, JAIL_BAIL_AMOUNT } from "../src/game/Game";
+import { movePosition, rollDice, Game, JAIL_BAIL_AMOUNT, SELL_RATE, TAX_RATE } from "../src/game/Game";
 import { Board } from "../src/game/Board";
 import { Player, type PlayerStatus } from "../src/game/Player";
 import { Property } from "../src/game/Property";
@@ -125,10 +125,11 @@ describe("2 · Board construction", () => {
     expect(board.findPropertyById(9999)).toBeUndefined();
   });
 
-  test("tax tiles have amount > 0", () => {
+  test("tax tiles have no fixed amount (tax is now % of the player's cash)", () => {
     const taxTiles = board.tiles.filter((t) => t.type === "tax");
+    expect(taxTiles.length).toBeGreaterThan(0);
     for (const tile of taxTiles) {
-      expect(tile.amount ?? 0).toBeGreaterThan(0);
+      expect(tile.amount ?? 0).toBe(0);
     }
   });
 });
@@ -194,9 +195,11 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
       const game = newGame();
       const p = game.players[0]!;
       p.position = 1;
+      const price = game.board.getTile(1).property!.price;
+      const before = p.money;
       const ok = game.buy(p);
       expect(ok).toBe(true);
-      expect(p.money).toBe(1400);
+      expect(p.money).toBe(before - price);
     });
 
     test("player owns the property after buying", () => {
@@ -236,13 +239,14 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
   });
 
   describe("4b · Sell", () => {
-    test("sell returns 50% of purchase price", () => {
+    test("sell returns SELL_RATE of purchase price", () => {
       const game = newGame();
       const p = game.players[0]!;
       buyAt(game, p, 1);
+      const price = game.board.getTile(1).property!.price;
       const before = p.money;
       game.sellProperty(p, game.board.getTile(1).property!.id);
-      expect(p.money).toBe(before + 50);
+      expect(p.money).toBe(before + Math.floor(price * SELL_RATE));
     });
 
     test("sold property has no owner", () => {
@@ -285,12 +289,13 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
       const game = newGame();
       const [owner, tenant] = [game.players[0]!, game.players[1]!];
       buyAt(game, owner, 1);
+      const rent = game.board.getTile(1).property!.rent;
       const ownerBefore = owner.money;
       const tenantBefore = tenant.money;
       tenant.position = 1;
       game.landOnTile(tenant, game.board.getTile(1));
-      expect(tenant.money).toBe(tenantBefore - 20);
-      expect(owner.money).toBe(ownerBefore + 20);
+      expect(tenant.money).toBe(tenantBefore - rent);
+      expect(owner.money).toBe(ownerBefore + rent);
     });
 
     test("landing on own property costs nothing", () => {
@@ -305,23 +310,23 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
     test("landlord receives only what tenant can pay when broke", () => {
       const game = newGame();
       const [owner, tenant] = [game.players[0]!, game.players[1]!];
-      buyAt(game, owner, 29);
+      buyAt(game, owner, 1);
       const ownerBefore = owner.money;
       tenant.money = 50;
-      tenant.position = 29;
-      game.landOnTile(tenant, game.board.getTile(29));
+      tenant.position = 1;
+      game.landOnTile(tenant, game.board.getTile(1));
       expect(owner.money).toBe(ownerBefore + 50);
     });
   });
 
   describe("4d · Tax tiles", () => {
-    test("tax tile deducts amount from player", () => {
+    test("tax tile deducts TAX_RATE % of the player's cash", () => {
       const game = newGame();
       const p = game.players[0]!;
       const taxTile = game.board.tiles.find((t) => t.type === "tax")!;
       const before = p.money;
       game.landOnTile(p, taxTile);
-      expect(p.money).toBe(before - (taxTile.amount ?? 0));
+      expect(p.money).toBe(before - Math.ceil(before * TAX_RATE));
     });
   });
 
@@ -404,10 +409,10 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
     test("bankrupt player has money=0 and status=bankrupt", () => {
       const game = newGame();
       const [owner, debtor] = [game.players[0]!, game.players[1]!];
-      buyAt(game, owner, 29);
+      buyAt(game, owner, 1);
       debtor.money = 50;
-      debtor.position = 29;
-      game.landOnTile(debtor, game.board.getTile(29));
+      debtor.position = 1;
+      game.landOnTile(debtor, game.board.getTile(1));
 
       expect(debtor.status).toBe("bankrupt");
       expect(debtor.money).toBe(0);
@@ -479,9 +484,10 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
       const p = game.players[0]!;
       p.position = 1;
       const prop = game.board.getTile(1).property!;
+      const before = p.money;
       game.pendingProperty = prop;
       game.decidePurchase(true);
-      expect(p.money).toBe(1400);
+      expect(p.money).toBe(before - prop.price);
       expect(game.pendingProperty).toBeNull();
     });
 
