@@ -1,6 +1,6 @@
 import blessed from "blessed";
 import { execSync } from "child_process";
-import { Game, movePosition, TAKEOVER_MULTIPLIER, SELL_RATE } from "../game/Game";
+import { Game, movePosition, TAKEOVER_MULTIPLIER, SELL_RATE, JAIL_BAIL_AMOUNT } from "../game/Game";
 import { Player } from "../game/Player";
 import type { ChanceCard, SaveData, SavedPlayerData } from "../game/Types";
 import { EasyAI } from "../ai/EasyAI";
@@ -240,8 +240,12 @@ export class App {
         const player = this.game.currentPlayer;
         const fromPos = player.position;
 
-        const dice = this.game.roll();
+        let bailChoice: boolean | undefined;
+        if (player.status === "jailed") {
+            bailChoice = await this.showJailPrompt(player);
+        }
 
+        const dice = this.game.roll(player, bailChoice);
         await this.diceView.animateRoll(dice || 1, () => this.screen.render());
         if (dice > 0) {
             await new Promise(resolve => setTimeout(resolve, PAUSE_AFTER_DICE_MS));
@@ -374,6 +378,38 @@ export class App {
                 resolve();
             };
             this.screen.onceKey("t", () => finish(true));
+            this.screen.onceKey("n", () => finish(false));
+        });
+    }
+
+    private showJailPrompt(player: Player): Promise<boolean> {
+        return new Promise(resolve => {
+            const canAfford = player.money >= JAIL_BAIL_AMOUNT;
+            const box = blessed.box({
+                top: "center", left: "center", width: "42%", height: "30%",
+                border: { type: "line" }, label: " In Jail ", tags: true,
+                align: "center" as const, valign: "middle" as const,
+                style: { border: { fg: "magenta" }, label: { fg: "magenta", bold: true } },
+                content: [
+                    `{bold}{magenta-fg}You are in Jail!{/magenta-fg}{/bold}`,
+                    "",
+                    `Bail: {yellow-fg}{bold}$${JAIL_BAIL_AMOUNT}{/bold}{/yellow-fg}`,
+                    canAfford ? "" : "{red-fg}Not enough cash to pay bail{/red-fg}",
+                    "",
+                    canAfford
+                        ? "{green-fg}{bold}[B]{/bold}{/green-fg} Pay Bail    {red-fg}{bold}[N]{/bold}{/red-fg} Skip Turn"
+                        : "{red-fg}{bold}[N]{/bold}{/red-fg} Skip Turn",
+                ].join("\n"),
+            });
+            this.screen.append(box);
+            this.screen.render();
+
+            const finish = (pay: boolean) => {
+                this.screen.remove(box);
+                this.screen.render();
+                resolve(pay);
+            };
+            if (canAfford) this.screen.onceKey("b", () => finish(true));
             this.screen.onceKey("n", () => finish(false));
         });
     }

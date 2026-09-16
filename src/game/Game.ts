@@ -45,12 +45,12 @@ export class Game {
     public get currentPlayer(): Player { return this.players[this.currentPlayerIndex]!; }
     public get activePlayers(): Player[] { return this.players.filter(p => p.status !== "bankrupt"); }
 
-    public roll(player: Player = this.currentPlayer): number {
+    public roll(player: Player = this.currentPlayer, humanBailChoice?: boolean): number {
         if (this.status === "finished") return 0;
         if (player.status === "bankrupt") return 0;
 
         if (player.status === "jailed") {
-            const wantsBail = player.decideJail?.(this, player) ?? false;
+            const wantsBail = player.id === "human" ? (humanBailChoice ?? false) : (player.decideJail?.(this, player) ?? false);
             if (wantsBail && player.money >= JAIL_BAIL_AMOUNT) {
                 player.removeMoney(JAIL_BAIL_AMOUNT);
                 player.status = "active";
