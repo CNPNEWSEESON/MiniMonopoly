@@ -1,6 +1,8 @@
 import type { Property } from "./Property";
 import type { PlayerStatus, PlayerKind, SellPriorityFn, JailDecisionFn } from "./Types";
 
+let testa
+
 export class Player {
     public position = 0;
     public money: number;
