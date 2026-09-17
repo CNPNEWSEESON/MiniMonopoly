@@ -8,7 +8,7 @@ import { EasyAI } from "../src/ai/EasyAI";
 import { NormalAI } from "../src/ai/NormalAI";
 import { HardAI } from "../src/ai/HardAI";
 
-//เทสลูกเต๋าใหม่
+//เทสลูกเต๋า
 const makePlayers = (): [Player, Player, Player, Player] => [
     new Player("human", "Player", "Human"),
     new Player("bot1", "Bot 1", "AI Easy"),
@@ -20,6 +20,7 @@ const noLog = () => {};
 
 const newGame = () => new Game(makePlayers(), noLog);
 
+//เทสการซื้อขายของเกม
 const buyAt = (game: Game, player: Player, pos: number) => {
     player.position = pos;
     game.buy(player);
