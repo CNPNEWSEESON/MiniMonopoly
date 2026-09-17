@@ -1,17 +1,18 @@
 import { describe, expect, test, beforeEach } from "bun:test";
 import { movePosition, rollDice, Game, JAIL_BAIL_AMOUNT, SELL_RATE, TAX_RATE } from "../src/game/Game";
 import { Board } from "../src/game/Board";
-import { Player, type PlayerStatus } from "../src/game/Player";
+import { Player } from "../src/game/Player";
+import { PlayerStatus } from "../src/game/Types";
 import { Property } from "../src/game/Property";
 import { EasyAI } from "../src/ai/EasyAI";
 import { NormalAI } from "../src/ai/NormalAI";
 import { HardAI } from "../src/ai/HardAI";
 
 const makePlayers = (): [Player, Player, Player, Player] => [
-  new Player("human", "Player", "Human"),
-  new Player("bot1", "Bot 1", "AI Easy"),
-  new Player("bot2", "Bot 2", "AI Normal"),
-  new Player("bot3", "Bot 3", "AI Hard"),
+    new Player("human", "Player", "Human"),
+    new Player("bot1", "Bot 1", "AI Easy"),
+    new Player("bot2", "Bot 2", "AI Normal"),
+    new Player("bot3", "Bot 3", "AI Hard"),
 ];
 
 const noLog = () => {};
@@ -19,174 +20,174 @@ const noLog = () => {};
 const newGame = () => new Game(makePlayers(), noLog);
 
 const buyAt = (game: Game, player: Player, pos: number) => {
-  player.position = pos;
-  game.buy(player);
+    player.position = pos;
+    game.buy(player);
 };
 
 describe("1 · Pure functions", () => {
-  test("movePosition — normal forward move", () => {
-    expect(movePosition(5, 3, 32)).toBe(8);
-  });
+    test("movePosition — normal forward move", () => {
+        expect(movePosition(5, 3, 32)).toBe(8);
+    });
 
-  test("movePosition — wraps around board forward", () => {
-    expect(movePosition(30, 5, 32)).toBe(3);
-  });
+    test("movePosition — wraps around board forward", () => {
+        expect(movePosition(30, 5, 32)).toBe(3);
+    });
 
-  test("movePosition — wraps around board backward", () => {
-    expect(movePosition(2, -5, 32)).toBe(29);
-  });
+    test("movePosition — wraps around board backward", () => {
+        expect(movePosition(2, -5, 32)).toBe(29);
+    });
 
-  test("movePosition — lands exactly on last tile", () => {
-    expect(movePosition(30, 1, 32)).toBe(31);
-  });
+    test("movePosition — lands exactly on last tile", () => {
+        expect(movePosition(30, 1, 32)).toBe(31);
+    });
 
-  test("movePosition — lands on tile 0 (START) exactly", () => {
-    expect(movePosition(31, 1, 32)).toBe(0);
-  });
+    test("movePosition — lands on tile 0 (START) exactly", () => {
+        expect(movePosition(31, 1, 32)).toBe(0);
+    });
 
-  test("rollDice — minimum value (random → 0)", () => {
-    expect(rollDice(() => 0)).toBe(1);
-  });
+    test("rollDice — minimum value (random → 0)", () => {
+        expect(rollDice(() => 0)).toBe(1);
+    });
 
-  test("rollDice — maximum value (random → 0.9999)", () => {
-    expect(rollDice(() => 0.9999)).toBe(6);
-  });
+    test("rollDice — maximum value (random → 0.9999)", () => {
+        expect(rollDice(() => 0.9999)).toBe(6);
+    });
 
-  test("rollDice — mid value (random → 0.5)", () => {
-    const v = rollDice(() => 0.5);
-    expect(v).toBeGreaterThanOrEqual(1);
-    expect(v).toBeLessThanOrEqual(6);
-  });
+    test("rollDice — mid value (random → 0.5)", () => {
+        const v = rollDice(() => 0.5);
+        expect(v).toBeGreaterThanOrEqual(1);
+        expect(v).toBeLessThanOrEqual(6);
+    });
 
-  test("rollDice — output always in 1..6 (100 samples)", () => {
-    for (let i = 0; i < 100; i++) {
-      const v = rollDice();
-      expect(v).toBeGreaterThanOrEqual(1);
-      expect(v).toBeLessThanOrEqual(6);
-    }
-  });
+    test("rollDice — output always in 1..6 (100 samples)", () => {
+        for (let i = 0; i < 100; i++) {
+            const v = rollDice();
+            expect(v).toBeGreaterThanOrEqual(1);
+            expect(v).toBeLessThanOrEqual(6);
+        }
+    });
 });
 
 describe("2 · Board construction", () => {
-  let board: Board;
-  beforeEach(() => {
-    board = new Board();
-  });
+    let board: Board;
+    beforeEach(() => {
+        board = new Board();
+    });
 
-  test("board has exactly 32 tiles", () => {
-    expect(board.tiles.length).toBe(32);
-  });
+    test("board has exactly 32 tiles", () => {
+        expect(board.tiles.length).toBe(32);
+    });
 
-  test("tile 0 is START (GO)", () => {
-    expect(board.tiles[0]!.type).toBe("start");
-    expect(board.tiles[0]!.name).toBe("GO");
-  });
+    test("tile 0 is START (GO)", () => {
+        expect(board.tiles[0]!.type).toBe("start");
+        expect(board.tiles[0]!.name).toBe("GO");
+    });
 
-  test("tile 8 is a jail", () => {
-    expect(board.tiles[8]!.type).toBe("jail");
-  });
+    test("tile 8 is a jail", () => {
+        expect(board.tiles[8]!.type).toBe("jail");
+    });
 
-  test("tile 16 is Free Parking", () => {
-    expect(board.tiles[16]!.type).toBe("parking");
-  });
+    test("tile 16 is Free Parking", () => {
+        expect(board.tiles[16]!.type).toBe("parking");
+    });
 
-  test("tile 24 is Go To Jail", () => {
-    expect(board.tiles[24]!.type).toBe("goToJail");
-  });
+    test("tile 24 is Go To Jail", () => {
+        expect(board.tiles[24]!.type).toBe("goToJail");
+    });
 
-  test("all property tiles have a Property instance", () => {
-    for (const tile of board.tiles) {
-      if (tile.type === "property") {
-        expect(tile.property).toBeInstanceOf(Property);
-      }
-    }
-  });
+    test("all property tiles have a Property instance", () => {
+        for (const tile of board.tiles) {
+            if (tile.type === "property") {
+                expect(tile.property).toBeInstanceOf(Property);
+            }
+        }
+    });
 
-  test("property prices increase toward the end of the board", () => {
-    const props = board.tiles.filter((t) => t.type === "property").map((t) => t.property!);
-    const firstHalf = props.slice(0, Math.floor(props.length / 2));
-    const secondHalf = props.slice(Math.floor(props.length / 2));
-    const avgFirst = firstHalf.reduce((s, p) => s + p.price, 0) / firstHalf.length;
-    const avgSecond = secondHalf.reduce((s, p) => s + p.price, 0) / secondHalf.length;
-    expect(avgSecond).toBeGreaterThan(avgFirst);
-  });
+    test("property prices increase toward the end of the board", () => {
+        const props = board.tiles.filter((t) => t.type === "property").map((t) => t.property!);
+        const firstHalf = props.slice(0, Math.floor(props.length / 2));
+        const secondHalf = props.slice(Math.floor(props.length / 2));
+        const avgFirst = firstHalf.reduce((s, p) => s + p.price, 0) / firstHalf.length;
+        const avgSecond = secondHalf.reduce((s, p) => s + p.price, 0) / secondHalf.length;
+        expect(avgSecond).toBeGreaterThan(avgFirst);
+    });
 
-  test("getTile wraps around using modulo", () => {
-    expect(board.getTile(32)).toBe(board.tiles[0]);
-    expect(board.getTile(33)).toBe(board.tiles[1]);
-  });
+    test("getTile wraps around using modulo", () => {
+        expect(board.getTile(32)).toBe(board.tiles[0]);
+        expect(board.getTile(33)).toBe(board.tiles[1]);
+    });
 
-  test("findPropertyById returns correct Property", () => {
-    const prop = board.tiles.find((t) => t.type === "property")!.property!;
-    expect(board.findPropertyById(prop.id)).toBe(prop);
-  });
+    test("findPropertyById returns correct Property", () => {
+        const prop = board.tiles.find((t) => t.type === "property")!.property!;
+        expect(board.findPropertyById(prop.id)).toBe(prop);
+    });
 
-  test("findPropertyById returns undefined for bad id", () => {
-    expect(board.findPropertyById(9999)).toBeUndefined();
-  });
+    test("findPropertyById returns undefined for bad id", () => {
+        expect(board.findPropertyById(9999)).toBeUndefined();
+    });
 
-  test("tax tiles have no fixed amount (tax is now % of the player's cash)", () => {
-    const taxTiles = board.tiles.filter((t) => t.type === "tax");
-    expect(taxTiles.length).toBeGreaterThan(0);
-    for (const tile of taxTiles) {
-      expect(tile.amount ?? 0).toBe(0);
-    }
-  });
+    test("tax tiles have no fixed amount (tax is now % of the player's cash)", () => {
+        const taxTiles = board.tiles.filter((t) => t.type === "tax");
+        expect(taxTiles.length).toBeGreaterThan(0);
+        for (const tile of taxTiles) {
+            expect(tile.amount ?? 0).toBe(0);
+        }
+    });
 });
 
 describe("3 · Player model", () => {
-  let player: Player;
-  beforeEach(() => {
-    player = new Player("test", "Test", "Human", 1500);
-  });
+    let player: Player;
+    beforeEach(() => {
+        player = new Player("test", "Test", "Human", 1500);
+    });
 
-  test("starts with correct money", () => {
-    expect(player.money).toBe(1500);
-  });
+    test("starts with correct money", () => {
+        expect(player.money).toBe(1500);
+    });
 
-  test("addMoney increases balance", () => {
-    player.addMoney(200);
-    expect(player.money).toBe(1700);
-  });
+    test("addMoney increases balance", () => {
+        player.addMoney(200);
+        expect(player.money).toBe(1700);
+    });
 
-  test("removeMoney decreases balance", () => {
-    player.removeMoney(300);
-    expect(player.money).toBe(1200);
-  });
+    test("removeMoney decreases balance", () => {
+        player.removeMoney(300);
+        expect(player.money).toBe(1200);
+    });
 
-  test("removeMoney can go negative (debt scenario)", () => {
-    player.removeMoney(2000);
-    expect(player.money).toBe(-500);
-  });
+    test("removeMoney can go negative (debt scenario)", () => {
+        player.removeMoney(2000);
+        expect(player.money).toBe(-500);
+    });
 
-  test("addProperty adds to list", () => {
-    const prop = new Property(1, "Test St", 100, 10);
-    player.addProperty(prop);
-    expect(player.properties).toHaveLength(1);
-  });
+    test("addProperty adds to list", () => {
+        const prop = new Property(1, "Test St", 100, 10);
+        player.addProperty(prop);
+        expect(player.properties).toHaveLength(1);
+    });
 
-  test("addProperty is idempotent (no duplicates)", () => {
-    const prop = new Property(1, "Test St", 100, 10);
-    player.addProperty(prop);
-    player.addProperty(prop);
-    expect(player.properties).toHaveLength(1);
-  });
+    test("addProperty is idempotent (no duplicates)", () => {
+        const prop = new Property(1, "Test St", 100, 10);
+        player.addProperty(prop);
+        player.addProperty(prop);
+        expect(player.properties).toHaveLength(1);
+    });
 
-  test("removeProperty removes from list", () => {
-    const prop = new Property(1, "Test St", 100, 10);
-    player.addProperty(prop);
-    player.removeProperty(prop);
-    expect(player.properties).toHaveLength(0);
-  });
+    test("removeProperty removes from list", () => {
+        const prop = new Property(1, "Test St", 100, 10);
+        player.addProperty(prop);
+        player.removeProperty(prop);
+        expect(player.properties).toHaveLength(0);
+    });
 
-  test("removeProperty on absent item is safe", () => {
-    const prop = new Property(1, "Test St", 100, 10);
-    expect(() => player.removeProperty(prop)).not.toThrow();
-  });
+    test("removeProperty on absent item is safe", () => {
+        const prop = new Property(1, "Test St", 100, 10);
+        expect(() => player.removeProperty(prop)).not.toThrow();
+    });
 
-  test("default status is active", () => {
-    expect(player.status).toBe("active");
-  });
+    test("default status is active", () => {
+        expect(player.status).toBe("active");
+    });
 });
 
 describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
@@ -385,7 +386,7 @@ describe("4 · Game flow — buy / sell / rent / tax / jail / bankrupt", () => {
       const originalRandom = Math.random;
       Math.random = () => 0;
       try {
-        game.roll(p);
+        game.roll(p, true);
       } finally {
         Math.random = originalRandom;
       }
